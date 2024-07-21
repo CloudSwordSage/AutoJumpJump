@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+# @Time    : 2024/7/21 19:17
+# @Author  : chenfeng
+# @Email   : zlf100518@163.com
+# @File    : env.py
+# @LICENSE : MIT
+
 import win32gui
 from PIL import Image, ImageGrab
 import matplotlib.pyplot as plt
@@ -118,24 +125,26 @@ class AutoJumpEnv():
         return ans
 
 
-    def main(self):
+    def test(self):
         image = self.get_screenshot(hwnd, dpi)
         img = np.array(image)
-        x, y, w, h, score = self.get_player_pos(img)
-        print(self.score(image))
-        hi, wi, ci = img.shape
-        img1 = img[200:y + h, :, :]
-        xt, yt, wt, ht, score = self.get_target_pos(img1)
-        img = cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        img = cv2.rectangle(img, (0, 200), (wi, y + h), (255, 0, 0), 2)
-        img = cv2.rectangle(img, (xt, 200 + yt), (xt + wt, 200 + yt + ht), (0, 0, 255), 2)
+        print(img.shape)
+
+        # x, y, w, h, score = self.get_player_pos(img)
+        # print(self.score(image))
+        # hi, wi, ci = img.shape
+        # img1 = img[200:y + h, :, :]
+        # xt, yt, wt, ht, score = self.get_target_pos(img1)
+        # img = cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # img = cv2.rectangle(img, (0, 200), (wi, y + h), (255, 0, 0), 2)
+        # img = cv2.rectangle(img, (xt, 200 + yt), (xt + wt, 200 + yt + ht), (0, 0, 255), 2)
         plt.imshow(img)
         plt.axis('off')
         plt.show()
 
         
-
-dpi = 1.5
-hwnd = 0x00010672
-auto_jump = AutoJumpEnv(hwnd=hwnd, dpi=dpi, resource_pack='./resource')
-auto_jump.main()
+if __name__ == '__main__':
+    dpi = 1.5
+    hwnd = 0x00010672
+    auto_jump = AutoJumpEnv(hwnd=hwnd, dpi=dpi, resource_pack='./resource')
+    auto_jump.test()
