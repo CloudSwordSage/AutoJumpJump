@@ -12,8 +12,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 import numpy as np
-import cv2
-import matplotlib.pyplot as plt
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)

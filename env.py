@@ -15,10 +15,10 @@ import torch
 import time
 
 class AutoJumpEnv():
-    def __init__(self, hwnd: int=0, dpi: float=1.0, resource_pack: str='./resource') -> None:
+    def __init__(self, hwnd: int=0, dpi: float=1.0, resource_pack: str='./resource', device = torch.device('cpu')) -> None:
         self.hwnd = hwnd
         self.dpi = dpi
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
         self.model = torch.jit.load('./model/mnist_cnn.pt').to(self.device)
         self.resource_pack = resource_pack
         self.player = cv2.imread(f'{self.resource_pack}/player.png')
@@ -113,21 +113,11 @@ class AutoJumpEnv():
 
     def state(self):
         img = self.__get_screenshot(self.hwnd, self.dpi)
-        img = img.convert('L')
+        img = img.resize((1280, 600), Image.ANTIALIAS)
         img = np.array(img)
-        img = cv2.resize(img, (600, 1280))
-        img = np.expand_dims(img, axis=0)
-        img = np.expand_dims(img, axis=0)
+        img = np.transpose(img, (2, 1, 0))
         img = torch.from_numpy(img).float().to(self.device)
         return img
-
-    def __get_player_position(self):
-        img = self.__get_screenshot(self.hwnd, self.dpi)
-        img = img.convert('L')
-        img = np.array(img)
-        pos = self.__multi_scale_search(self.player, img, 0.3, 10)
-        h, w = pos[3] // 2, pos[2] // 2
-        return [w+pos[0], h+pos[1]]
     
     def end(self):
         img = self.__get_screenshot(self.hwnd, self.dpi)
@@ -143,42 +133,19 @@ class AutoJumpEnv():
         img = self.state()
         end_game = self.end()
         if end_game:
-            return img, 0, end_game, {'score': self.last_score}
+            return img, 0, end_game, self.last_score
         x, y = 2200, 1200
         pyautogui.moveTo(x, y)
         pyautogui.mouseDown(button='left')
         pyautogui.sleep(action)
         pyautogui.mouseUp(button='left')
-        score = self.score()
-        self.last_score = score
-        return img, score - self.last_score, end_game, score
+        now_score = self.score()
+        score = now_score - self.last_score
+        self.last_score = now_score
+        return img, score, end_game, now_score
 
     def reset(self):
+        self.last_score = 0
         pos = self.__get_window_rect(self.hwnd)
         pyautogui.moveTo(2300, 1150)
         pyautogui.click(button='left')
-
-    def test(self):
-        img = self.__get_screenshot(self.hwnd, self.dpi)
-        # img = ImageGrab.grabwindow(self.hwnd)
-        img = np.array(img)
-        # cv2.imwrite('end.png', img)
-        # print(self.__get_player_position())
-        print(self.end())
-        # x, y, w, h, score = self.get_player_pos(img)
-        # print(self.score(image))
-        # hi, wi, ci = img.shape
-        # img1 = img[200:y + h, :, :]
-        # xt, yt, wt, ht, score = self.get_target_pos(img1)
-        # img = cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        # img = cv2.rectangle(img, (0, 200), (wi, y + h), (255, 0, 0), 2)
-        # img = cv2.rectangle(img, (xt, 200 + yt), (xt + wt, 200 + yt + ht), (0, 0, 255), 2)
-        plt.imshow(img)
-        plt.show()
-
-        
-if __name__ == '__main__':
-    dpi = 1
-    hwnd = 0x000C0760
-    auto_jump = AutoJumpEnv(hwnd=hwnd, dpi=dpi, resource_pack='./resource')
-    auto_jump.test()
