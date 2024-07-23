@@ -35,7 +35,7 @@ class MnistNet(nn.Module):
         x = self.relu3(x)
         x = self.fc2(x)
         return F.softmax(x, dim=1)
-
+    
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print(device)
