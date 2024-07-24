@@ -196,7 +196,7 @@ for i_episode in range(num_episodes):
     tqdm.write('-'*110)
     episode_tar.set_postfix(Duration=t+1, score=score)
     episode_tar.update()
-    if i_episode % 50 == 9:
+    if i_episode % 50 == 49:
         txt = f'{"Saving model...":=^110}'
         tqdm.write(txt)
         torch.save(policy_net, policy_net_path)
