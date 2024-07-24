@@ -77,7 +77,7 @@ class DQN(nn.Module):
         x = self.fc1(x)
         return x
 
-env = AutoJumpEnv(hwnd=0x000C0760, dpi=1, device=device)
+env = AutoJumpEnv(hwnd=0x01150AA0, dpi=1, device=device)
 
 BATCH_SIZE = 128
 GAMMA = 0.99
@@ -197,8 +197,12 @@ for i_episode in range(num_episodes):
     episode_tar.set_postfix(Duration=t+1, score=score)
     episode_tar.update()
     if i_episode % 50 == 9:
+        txt = f'{"Saving model...":=^110}'
+        tqdm.write(txt)
         torch.save(policy_net, policy_net_path)
         torch.save(target_net, target_net_path)
+        txt = f'{"Saved model":=^110}'
+        tqdm.write(txt)
 print('Complete')
 torch.save(policy_net, './model/dqn-policy-whole.pth')
 torch.save(target_net, './model/dqn-target-whole.pth')

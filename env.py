@@ -147,5 +147,5 @@ class AutoJumpEnv():
     def reset(self):
         self.last_score = 0
         pos = self.__get_window_rect(self.hwnd)
-        pyautogui.moveTo(2300, 1150)
+        pyautogui.moveTo(2304, 1097)
         pyautogui.click(button='left')
