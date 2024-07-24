@@ -99,12 +99,17 @@ policy_net_path = './model/dqn-policy.pth'
 target_net_path = './model/dqn-target.pth'
 
 if os.path.exists('./model/dqn-policy.pth'):
+    print('    Loading policy network...')
     policy_net = torch.load(policy_net_path)
 else:
+    print('    Creating policy network...')
     policy_net = DQN().to(device)
+
 if os.path.exists('./model/dqn-target.pth'):
+    print('    Loading target network...')
     target_net = torch.load(target_net_path)
 else:
+    print('    Creating target network...')
     target_net = DQN().to(device)
 
 target_net.load_state_dict(policy_net.state_dict())
