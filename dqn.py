@@ -125,7 +125,7 @@ def select_action(state):
         with torch.no_grad():
             return policy_net(state).max(1)[1].view(1, 1)
     else:
-        return torch.tensor([[random.randint(0, 200)]], device=device, dtype=torch.long)
+        return torch.tensor([[random.randint(0, len(actions) - 1)]], device=device, dtype=torch.long)
 episode_durations = []
 
 def optimize_model():
