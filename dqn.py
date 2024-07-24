@@ -9,6 +9,7 @@ import math
 import random
 import matplotlib
 import time
+import os
 import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
@@ -93,17 +94,22 @@ print(f'''    BATCH_SIZE: {BATCH_SIZE}
     EPS_DECAY: {EPS_DECAY}
     TAU: {TAU}
     LR: {LR}\n''')
-init_screen = env.state()
-_, screen_height, screen_width = init_screen.shape
-policy_net = DQN().to(device)
-target_net = DQN().to(device)
 
-# TODO: 读取预训练好的模型用这里
-# policy_net = torch.load('./model/dqn-policy.pt').to(device)
-# target_net = torch.load('./model/dqn-target.pt').to(device)
+policy_net_path = './model/dqn-policy.pth'
+target_net_path = './model/dqn-target.pth'
+
+if os.path.exists('./model/dqn-policy.pth'):
+    policy_net = torch.load(policy_net_path)
+else:
+    policy_net = DQN().to(device)
+if os.path.exists('./model/dqn-target.pth'):
+    target_net = torch.load(target_net_path)
+else:
+    target_net = DQN().to(device)
 
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
+
 optimizer = optim.RMSprop(policy_net.parameters(), lr=LR)
 memory = ReplayMemory(10000)
 print(f'    memory size: 10000')
@@ -190,9 +196,12 @@ for i_episode in range(num_episodes):
     tqdm.write('-'*110)
     episode_tar.set_postfix(Duration=t+1, score=score)
     episode_tar.update()
+    if i_episode % 50 == 9:
+        torch.save(policy_net, policy_net_path)
+        torch.save(target_net, target_net_path)
 print('Complete')
-torch.save(policy_net, './model/dqn-policy.pth')
-torch.save(target_net, './model/dqn-target.pth')
+torch.save(policy_net, './model/dqn-policy-whole.pth')
+torch.save(target_net, './model/dqn-target-whole.pth')
 episode_tar.close()
 plt.figure(1)
 plt.title('Result')
