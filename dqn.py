@@ -177,7 +177,7 @@ for i_episode in range(num_episodes):
         text = f'episode: {i_episode: <5} | step: {t+1: <10} | action: {actions[action.item()] / 1000: <5.2f} | reward: {reward: <10}'
         text += f' | score: {score: <10}'
         tqdm.write(text)
-        time.sleep(3.5)
+        time.sleep(4)
         reward = torch.tensor([reward], device=device)
         if not done:
             next_state = env.state().unsqueeze(0)
