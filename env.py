@@ -133,6 +133,7 @@ class AutoJumpEnv():
         img = self.state()
         end_game = self.end()
         if end_game:
+            self.reset()
             return img, 0, end_game, self.last_score
         x, y = 2200, 1200
         pyautogui.moveTo(x, y)

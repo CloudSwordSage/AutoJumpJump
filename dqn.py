@@ -7,10 +7,9 @@
 
 import math
 import random
-import matplotlib
+import pickle
 import time
 import os
-import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
 from tqdm import tqdm
@@ -116,8 +115,15 @@ target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters(), lr=LR)
-memory = ReplayMemory(10000)
-print(f'    memory size: 10000')
+
+if os.path.exists('./class/dqn-memory.pkl'):
+    print('    Loading memory...')
+    with open('./class/dqn-memory.pkl', 'rb') as f:
+        memory = pickle.load(f)
+else:
+    print('    Creating memory...')
+    memory = ReplayMemory(10000)
+    print(f'    memory size: 10000')
 
 steps_done = 0
 def select_action(state):
@@ -156,72 +162,54 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-num_episodes = 1000
+num_episodes = 200
 print(f'    num_episodes: {num_episodes}')
 print('-'*110)
 episode_tar = tqdm(total=num_episodes, desc='Training', unit='episodes', leave=False)
 score_list = []
 avg_score_list = []
 
-# INFO: 全局try，捕获异常之后不会停止解释器，用于分析内存占用情况(会出现爆显存的情况)
-try:
-    for i_episode in range(num_episodes):
-        last_screen = env.state()
-        current_screen = env.state()
-        state = current_screen - last_screen
-        state = state.unsqueeze(0)
-        for t in count():
-            action = select_action(state)
-            _, reward, done, score = env.step(actions[action.item()])
-            text = f'episode: {i_episode: <5} | step: {t+1: <10} | action: {actions[action.item()] / 1000: <5.2f} | reward: {reward: <10}'
-            text += f' | score: {score: <10}'
-            tqdm.write(text)
-            time.sleep(3.5)
-            reward = torch.tensor([reward], device=device)
-            last_screen = current_screen
-            current_screen = env.state()
-            if not done:
-                next_state = current_screen - last_screen
-                next_state = next_state.unsqueeze(0)
-            else:
-                next_state = None
-            memory.push(state, action, next_state, reward)
-            state = next_state
-            optimize_model()
-            target_net_state_dict = target_net.state_dict()
-            policy_net_state_dict = policy_net.state_dict()
-            for key in policy_net_state_dict:
-                target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-            target_net.load_state_dict(target_net_state_dict)
-            if done:
-                episode_durations.append(t + 1)
-                env.reset()
-                break
-        score_list.append(score)
-        avg_score = sum(score_list[-10:])/len(score_list[-10:])
-        avg_score_list.append(avg_score)
-        tqdm.write('-'*110)
-        episode_tar.set_postfix(Duration=t+1, score=score)
-        episode_tar.update()
-        if i_episode % 50 == 49:
-            txt = f'{"Saving model...":=^110}'
-            tqdm.write(txt)
-            torch.save(policy_net, policy_net_path)
-            torch.save(target_net, target_net_path)
-            txt = f'{"Saved model":=^110}'
-            tqdm.write(txt)
-    print('Complete')
-    torch.save(policy_net, './model/dqn-policy-whole.pth')
-    torch.save(target_net, './model/dqn-target-whole.pth')
-    episode_tar.close()
-    plt.figure(1)
-    plt.title('Result')
-    plt.xlabel('Episode')
-    plt.ylabel('Scores')
-    plt.plot(score_list, label='score', color='blue')
-    plt.plot(avg_score_list, label='average score', color='red')
-    plt.legend()
-    plt.show()
-except Exception as e:
-    print(e)
-    os.system('pause')
+for i_episode in range(num_episodes):
+    state = env.state().unsqueeze(0)
+    for t in count():
+        action = select_action(state)
+        _, reward, done, score = env.step(actions[action.item()])
+        text = f'episode: {i_episode: <5} | step: {t+1: <10} | action: {actions[action.item()] / 1000: <5.2f} | reward: {reward: <10}'
+        text += f' | score: {score: <10}'
+        tqdm.write(text)
+        time.sleep(3.5)
+        reward = torch.tensor([reward], device=device)
+        if not done:
+            next_state = env.state().unsqueeze(0)
+        else:
+            next_state = None
+        memory.push(state, action, next_state, reward)
+        state = next_state
+        optimize_model()
+        target_net_state_dict = target_net.state_dict()
+        policy_net_state_dict = policy_net.state_dict()
+        for key in policy_net_state_dict:
+            target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
+        target_net.load_state_dict(target_net_state_dict)
+        if done:
+            episode_durations.append(t + 1)
+            env.reset()
+            break
+    score_list.append(score)
+    avg_score = sum(score_list[-10:])/len(score_list[-10:])
+    avg_score_list.append(avg_score)
+    tqdm.write('-'*110)
+    episode_tar.set_postfix(Duration=t+1, score=score)
+    episode_tar.update()
+    if i_episode % 50 == 49:
+        txt = f'{"Saving model...":=^110}'
+        tqdm.write(txt)
+        torch.save(policy_net, policy_net_path)
+        torch.save(target_net, target_net_path)
+        txt = f'{"Saved model":=^110}'
+        tqdm.write(txt)
+print('Complete')
+torch.save(policy_net, './model/dqn-policy-whole.pth')
+with open('./class/dqn-memory.pkl', 'wb') as f:
+    pickle.dump(memory, f)
+episode_tar.close()
