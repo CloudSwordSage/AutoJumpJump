@@ -193,7 +193,6 @@ for i_episode in range(num_episodes):
         target_net.load_state_dict(target_net_state_dict)
         if done:
             episode_durations.append(t + 1)
-            env.reset()
             break
     score_list.append(score)
     avg_score = sum(score_list[-10:])/len(score_list[-10:])
