@@ -1,4 +1,3 @@
-
 @echo off
 cls
 call D:\anaconda3\Scripts\activate.bat pytorch
