@@ -10,6 +10,7 @@ import random
 import pickle
 import time
 import os
+import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
 from tqdm import tqdm
@@ -23,6 +24,9 @@ from env import AutoJumpEnv
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device("cpu")
+
+os.system('cls')
+
 print(f'    Using {device} device.')
 
 actions = list(range(0, 2001, 10))
@@ -52,15 +56,20 @@ class ReplayMemory(object):
 
 
 class DQN(nn.Module):
-    def __init__(self):
+    def __init__(self, h, w):
         super(DQN, self).__init__()
         self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
         self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
-        self.bn3 = nn.BatchNorm2d(32)
-        self.fc1 = nn.Linear(32 * 157 * 72, len(actions))
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=5, stride=2)
+        self.bn3 = nn.BatchNorm2d(64)
+        size = lambda x: int((x - 5) / 2 + 1)
+        oh = size(size(size(h)))
+        ow = size(size(size(w)))
+        linear_input_size = 64 * oh * ow
+        self.fc1 = nn.Linear(linear_input_size, len(actions))
+
 
     def forward(self, x):
         x = self.conv1(x)
@@ -77,6 +86,7 @@ class DQN(nn.Module):
         return x
 
 env = AutoJumpEnv(hwnd=0x01150AA0, dpi=1, device=device)
+_, h, w = env.state().shape
 
 BATCH_SIZE = 128
 GAMMA = 0.99
@@ -102,28 +112,22 @@ if os.path.exists('./model/dqn-policy.pth'):
     policy_net = torch.load(policy_net_path)
 else:
     print('    Creating policy network...')
-    policy_net = DQN().to(device)
+    policy_net = DQN(h, w).to(device)
 
 if os.path.exists('./model/dqn-target.pth'):
     print('    Loading target network...')
     target_net = torch.load(target_net_path)
 else:
     print('    Creating target network...')
-    target_net = DQN().to(device)
+    target_net = DQN(h, w).to(device)
 
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters(), lr=LR)
-
-if os.path.exists('./class/dqn-memory.pkl'):
-    print('    Loading memory...')
-    with open('./class/dqn-memory.pkl', 'rb') as f:
-        memory = pickle.load(f)
-else:
-    print('    Creating memory...')
-    memory = ReplayMemory(10000)
-    print(f'    memory size: 10000')
+print('    Creating memory...')
+memory = ReplayMemory(10000)
+print(f'    memory size: 10000')
 
 steps_done = 0
 def select_action(state):
@@ -133,9 +137,13 @@ def select_action(state):
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
     if sample > eps_threshold:
+        del sample, eps_threshold
+        torch.cuda.empty_cache()
         with torch.no_grad():
             return policy_net(state).max(1)[1].view(1, 1)
     else:
+        del sample, eps_threshold
+        torch.cuda.empty_cache()
         return torch.tensor([[random.randint(0, len(actions) - 1)]], device=device, dtype=torch.long)
 episode_durations = []
 
@@ -161,8 +169,11 @@ def optimize_model():
     for param in policy_net.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
+    del transitions, batch, non_final_mask, non_final_next_states, state_batch, action_batch, reward_batch,\
+    state_action_values, next_state_values, expected_state_action_values, loss, param
+    torch.cuda.empty_cache()
 
-num_episodes = 200
+num_episodes = 1000
 print(f'    num_episodes: {num_episodes}')
 print('-'*110)
 episode_tar = tqdm(total=num_episodes, desc='Training', unit='episodes', leave=False)
@@ -171,9 +182,11 @@ avg_score_list = []
 
 for i_episode in range(num_episodes):
     state = env.state().unsqueeze(0)
+    score = 0
     for t in count():
         action = select_action(state)
-        _, reward, done, score = env.step(actions[action.item()])
+        _, reward, done, _ = env.step(actions[action.item()])
+        score += reward if reward != -1 else 0
         text = f'episode: {i_episode: <5} | step: {t+1: <10} | action: {actions[action.item()] / 1000: <5.2f} | reward: {reward: <10}'
         text += f' | score: {score: <10}'
         tqdm.write(text)
@@ -194,6 +207,8 @@ for i_episode in range(num_episodes):
         if done:
             episode_durations.append(t + 1)
             break
+    del target_net_state_dict, policy_net_state_dict
+    torch.cuda.empty_cache()
     score_list.append(score)
     avg_score = sum(score_list[-10:])/len(score_list[-10:])
     avg_score_list.append(avg_score)
@@ -209,6 +224,12 @@ for i_episode in range(num_episodes):
         tqdm.write(txt)
 print('Complete')
 torch.save(policy_net, './model/dqn-policy-whole.pth')
-with open('./class/dqn-memory.pkl', 'wb') as f:
-    pickle.dump(memory, f)
 episode_tar.close()
+plt.figure(1)
+plt.title('Result')
+plt.xlabel('Episode')
+plt.ylabel('Scores')
+plt.plot(score_list, label='score', color='blue')
+plt.plot(avg_score_list, label='average score', color='red')
+plt.legend()
+plt.show()

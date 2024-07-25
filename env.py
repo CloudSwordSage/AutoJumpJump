@@ -22,7 +22,6 @@ class AutoJumpEnv():
         self.model = torch.jit.load('./model/mnist_cnn.pt').to(self.device)
         self.resource_pack = resource_pack
         self.player = cv2.imread(f'{self.resource_pack}/player.png')
-        self.player = cv2.cvtColor(self.player, cv2.COLOR_BGR2GRAY)
         self.end_img = cv2.imread(f'{self.resource_pack}/end.png')
         self.end_img = cv2.cvtColor(self.end_img, cv2.COLOR_BGR2GRAY)
         self.last_score = 0
@@ -68,7 +67,7 @@ class AutoJumpEnv():
     def __get_score(self, img) -> int:
         ans = 0
         width, height = img.size
-        score = img.crop((50, 100, width - 10, 200))
+        score = img.crop((50, 100, width - 10, 230))
         img = np.array(score)
         img_list = self.__digital_divide(img, reverse=True)
         for i in img_list:
@@ -113,9 +112,12 @@ class AutoJumpEnv():
 
     def state(self):
         img = self.__get_screenshot(self.hwnd, self.dpi)
-        img = img.resize((1280, 600), Image.ANTIALIAS)
+        img = img.resize((600, 1280), Image.ANTIALIAS)
         img = np.array(img)
-        img = np.transpose(img, (2, 1, 0))
+        start_y = 230
+        y = start_y + 600
+        img = img[start_y: y, :, :]
+        img = np.transpose(img, (2, 0, 1))
         img = torch.from_numpy(img).float().to(self.device)
         return img
     
@@ -134,7 +136,7 @@ class AutoJumpEnv():
         end_game = self.end()
         if end_game:
             self.reset()
-            return img, 0, end_game, self.last_score
+            return img, -1, end_game, self.last_score
         x, y = 2200, 1200
         pyautogui.moveTo(x, y)
         pyautogui.mouseDown(button='left')
@@ -150,3 +152,7 @@ class AutoJumpEnv():
         pos = self.__get_window_rect(self.hwnd)
         pyautogui.moveTo(2304, 1097)
         pyautogui.click(button='left')
+
+env = AutoJumpEnv(hwnd=0x01150AA0, dpi=1)
+img = env.state()
+print(img.shape)

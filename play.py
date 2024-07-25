@@ -48,19 +48,14 @@ class DQN(nn.Module):
 
 env = AutoJumpEnv(hwnd=0x01150AA0, dpi=1, device=device)
 
-policy_net = torch.load('./model/dqn-policy-whole.pth')
-state = env.state().unsqueeze(0)
+policy_net = torch.load('./model/dqn-policy.pth')
 for t in count():
+    if env.end():
+        print('End!')
+        break
+    state = env.state().unsqueeze(0)
     action = policy_net(state).max(1)[1].view(1, 1)
     action = actions[action.item()]
     print(f'Seleced action: {action}ms')
-    _, reward, done, score = env.step(action)
+    env.step(action)
     time.sleep(4)
-    reward = torch.tensor([reward], device=device)
-    if not done:
-        next_state = env.state().unsqueeze(0)
-    else:
-        next_state = None
-    state = next_state
-    if done:
-        break
