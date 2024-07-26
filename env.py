@@ -117,6 +117,8 @@ class AutoJumpEnv():
         start_y = 230
         y = start_y + 600
         img = img[start_y: y, :, :]
+        # img = cv2.Canny(img, 40, 10)
+        # img = np.expand_dims(img, axis=-1)
         img = np.transpose(img, (2, 0, 1))
         img = torch.from_numpy(img).float().to(self.device)
         return img
@@ -135,8 +137,9 @@ class AutoJumpEnv():
         img = self.state()
         end_game = self.end()
         if end_game:
+            score = self.last_score
             self.reset()
-            return img, -1, end_game, self.last_score
+            return img, -2, end_game, score
         x, y = 2200, 1200
         pyautogui.moveTo(x, y)
         pyautogui.mouseDown(button='left')
@@ -145,6 +148,10 @@ class AutoJumpEnv():
         now_score = self.score()
         score = now_score - self.last_score
         self.last_score = now_score
+        if score == 0:
+            score = -1
+        elif score > 2:
+            score = 1
         return img, score, end_game, now_score
 
     def reset(self):
@@ -153,6 +160,31 @@ class AutoJumpEnv():
         pyautogui.moveTo(2304, 1097)
         pyautogui.click(button='left')
 
-env = AutoJumpEnv(hwnd=0x01150AA0, dpi=1)
-img = env.state()
-print(img.shape)
+if __name__ == '__main__':
+    env = AutoJumpEnv(hwnd=0x000E099C, dpi=1)
+    img = env.state()
+    print(img.shape)
+    img = img.permute(1, 2, 0)
+    img = img.numpy()
+    # img = (img * 255).astype(np.uint8)
+    plt.imshow(img, cmap='gray')
+    plt.show()
+    # img = img.permute(1, 2, 0)
+    # img = img.numpy()
+    # cv2.namedWindow('trackbar', cv2.WINDOW_NORMAL)
+    # cv2.resizeWindow('trackbar', 600, 800)
+    # def call_back(value):
+    #     print(value)
+    # cv2.createTrackbar('canny_min', 'trackbar', 40, 255, call_back)
+    # cv2.createTrackbar('canny_max', 'trackbar', 10, 255, call_back)
+    # while True:
+    #     canny_min = cv2.getTrackbarPos('canny_min', 'trackbar')
+    #     canny_max = cv2.getTrackbarPos('canny_max', 'trackbar')
+    #     img1 = cv2.Canny(img, canny_min, canny_max)
+    #     cv2.imshow('trackbar', img1)
+    #     k = cv2.waitKey(1)
+    #     if k == ord('q'):
+    #         break
+    # img = (img * 255).astype(np.uint8)
+    # plt.imshow(img, cmap='gray')
+    # plt.show()

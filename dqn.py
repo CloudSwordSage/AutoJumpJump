@@ -7,7 +7,6 @@
 
 import math
 import random
-import pickle
 import time
 import os
 import matplotlib.pyplot as plt
@@ -23,7 +22,6 @@ import torch.nn.functional as F
 from env import AutoJumpEnv
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = torch.device("cpu")
 
 os.system('cls')
 
@@ -37,56 +35,47 @@ Transition = namedtuple('Transition',
 
 class ReplayMemory(object):
     def __init__(self, capacity):
-        self.capacity = capacity
-        self.memory = []
-        self.position = 0
+        self.memory = deque([], maxlen=capacity)
 
     def push(self, *args):
-        """保存变换"""
-        if len(self.memory) < self.capacity:
-            self.memory.append(None)
-        self.memory[self.position] = Transition(*args)
-        self.position = (self.position + 1) % self.capacity
+        self.memory.append(Transition(*args))
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
-    
+
     def __len__(self):
         return len(self.memory)
 
 
 class DQN(nn.Module):
-    def __init__(self, h, w):
+    def __init__(self, c, h, w):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 64, kernel_size=5, stride=2)
-        self.bn3 = nn.BatchNorm2d(64)
-        size = lambda x: int((x - 5) / 2 + 1)
-        oh = size(size(size(h)))
-        ow = size(size(size(w)))
+        self.conv1 = nn.Conv2d(c, 32, kernel_size=8, stride=4, padding=0)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0)
+        size = lambda x, y, z: int((x - y) / z + 1)
+        oh = size(size(size(h, 8, 4), 4, 2), 3, 1)
+        ow = size(size(size(w, 8, 4), 4, 2), 3, 1)
         linear_input_size = 64 * oh * ow
-        self.fc1 = nn.Linear(linear_input_size, len(actions))
+        self.fc1 = nn.Linear(linear_input_size, 512)
+        self.fc2 = nn.Linear(512, len(actions))
 
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.bn1(x)
         x = F.relu(x)
         x = self.conv2(x)
-        x = self.bn2(x)
         x = F.relu(x)
         x = self.conv3(x)
-        x = self.bn3(x)
         x = F.relu(x)
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
         return x
 
-env = AutoJumpEnv(hwnd=0x01150AA0, dpi=1, device=device)
-_, h, w = env.state().shape
+env = AutoJumpEnv(hwnd=0x000E099C, dpi=1, device=device)
+c, h, w = env.state().shape
 
 BATCH_SIZE = 128
 GAMMA = 0.99
@@ -94,7 +83,7 @@ EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 1000
 TAU = 0.005
-LR = 1e-4
+LR = 0.00025
 
 print(f'''    BATCH_SIZE: {BATCH_SIZE}
     GAMMA: {GAMMA}
@@ -112,19 +101,19 @@ if os.path.exists('./model/dqn-policy.pth'):
     policy_net = torch.load(policy_net_path)
 else:
     print('    Creating policy network...')
-    policy_net = DQN(h, w).to(device)
+    policy_net = DQN(c, h, w).to(device)
 
 if os.path.exists('./model/dqn-target.pth'):
     print('    Loading target network...')
     target_net = torch.load(target_net_path)
 else:
     print('    Creating target network...')
-    target_net = DQN(h, w).to(device)
+    target_net = DQN(c, h, w).to(device)
 
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
-optimizer = optim.RMSprop(policy_net.parameters(), lr=LR)
+optimizer = optim.Adam(policy_net.parameters(), lr=LR)
 print('    Creating memory...')
 memory = ReplayMemory(10000)
 print(f'    memory size: 10000')
@@ -140,16 +129,16 @@ def select_action(state):
         del sample, eps_threshold
         torch.cuda.empty_cache()
         with torch.no_grad():
-            return policy_net(state).max(1)[1].view(1, 1)
+            return policy_net(state).max(1)[1].view(1, 1), 'policy'
     else:
         del sample, eps_threshold
         torch.cuda.empty_cache()
-        return torch.tensor([[random.randint(0, len(actions) - 1)]], device=device, dtype=torch.long)
+        return torch.tensor([[random.randint(0, len(actions) - 1)]], device=device, dtype=torch.long), 'random'
 episode_durations = []
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
-        return
+        return False
     transitions = memory.sample(BATCH_SIZE)
     batch = Transition(*zip(*transitions))
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
@@ -172,33 +161,33 @@ def optimize_model():
     del transitions, batch, non_final_mask, non_final_next_states, state_batch, action_batch, reward_batch,\
     state_action_values, next_state_values, expected_state_action_values, loss, param
     torch.cuda.empty_cache()
+    return True
 
-num_episodes = 1000
+num_episodes = 700
 print(f'    num_episodes: {num_episodes}')
 print('-'*110)
 episode_tar = tqdm(total=num_episodes, desc='Training', unit='episodes', leave=False)
 score_list = []
 avg_score_list = []
+is_opt = False
 
 for i_episode in range(num_episodes):
     state = env.state().unsqueeze(0)
-    score = 0
     for t in count():
-        action = select_action(state)
-        _, reward, done, _ = env.step(actions[action.item()])
-        score += reward if reward != -1 else 0
-        text = f'episode: {i_episode: <5} | step: {t+1: <10} | action: {actions[action.item()] / 1000: <5.2f} | reward: {reward: <10}'
-        text += f' | score: {score: <10}'
+        action, source = select_action(state)
+        _, reward, done, score = env.step(actions[action.item()])
+        text = f'source: {source} | episode: {i_episode: <3} | step: {t+1: <3} | action: {actions[action.item()]: <5}'
+        text += f' | reward: {reward: <5} | score: {score: <5} | optimize model: {is_opt}'
         tqdm.write(text)
         time.sleep(4)
-        reward = torch.tensor([reward], device=device)
-        if not done:
+        if (not done) or reward > 0:
             next_state = env.state().unsqueeze(0)
         else:
             next_state = None
+        reward = torch.tensor([reward], device=device)
         memory.push(state, action, next_state, reward)
         state = next_state
-        optimize_model()
+        is_opt = optimize_model()
         target_net_state_dict = target_net.state_dict()
         policy_net_state_dict = policy_net.state_dict()
         for key in policy_net_state_dict:
