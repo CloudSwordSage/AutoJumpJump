@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from env import AutoJumpEnv
+import hwnd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f'    Using {device} device.')
@@ -47,9 +48,9 @@ class DQN(nn.Module):
         x = self.fc2(x)
         return x
 
-env = AutoJumpEnv(hwnd=0x000E099C, dpi=1, device=device)
+env = AutoJumpEnv(hwnd=hwnd.hwnd, dpi=1, device=device)
 
-policy_net = torch.load('./model/dqn-policy.pth')
+policy_net = torch.load('./model/dqn-policy-whole.pth')
 for t in count():
     if env.end():
         print('End!')

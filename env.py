@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import torch
-import time
+import hwnd
 
 class AutoJumpEnv():
     def __init__(self, hwnd: int=0, dpi: float=1.0, resource_pack: str='./resource', device = torch.device('cpu')) -> None:
@@ -159,32 +159,3 @@ class AutoJumpEnv():
         pos = self.__get_window_rect(self.hwnd)
         pyautogui.moveTo(2304, 1097)
         pyautogui.click(button='left')
-
-if __name__ == '__main__':
-    env = AutoJumpEnv(hwnd=0x000E099C, dpi=1)
-    img = env.state()
-    print(img.shape)
-    img = img.permute(1, 2, 0)
-    img = img.numpy()
-    # img = (img * 255).astype(np.uint8)
-    plt.imshow(img, cmap='gray')
-    plt.show()
-    # img = img.permute(1, 2, 0)
-    # img = img.numpy()
-    # cv2.namedWindow('trackbar', cv2.WINDOW_NORMAL)
-    # cv2.resizeWindow('trackbar', 600, 800)
-    # def call_back(value):
-    #     print(value)
-    # cv2.createTrackbar('canny_min', 'trackbar', 40, 255, call_back)
-    # cv2.createTrackbar('canny_max', 'trackbar', 10, 255, call_back)
-    # while True:
-    #     canny_min = cv2.getTrackbarPos('canny_min', 'trackbar')
-    #     canny_max = cv2.getTrackbarPos('canny_max', 'trackbar')
-    #     img1 = cv2.Canny(img, canny_min, canny_max)
-    #     cv2.imshow('trackbar', img1)
-    #     k = cv2.waitKey(1)
-    #     if k == ord('q'):
-    #         break
-    # img = (img * 255).astype(np.uint8)
-    # plt.imshow(img, cmap='gray')
-    # plt.show()

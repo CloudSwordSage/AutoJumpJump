@@ -16,4 +16,6 @@
 | minst_data.py | 文件 | 数据集文件 |
 | traint.py | 文件 | 训练文件 |
 | requrements.txt | 文件 | 环境依赖文件 |
+| play.py | 文件 | 运行文件 |
+| hwnd.py | 文件 | 窗口句柄 |
 

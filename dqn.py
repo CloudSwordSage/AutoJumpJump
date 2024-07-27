@@ -20,6 +20,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from env import AutoJumpEnv
+import hwnd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -74,7 +75,7 @@ class DQN(nn.Module):
         x = self.fc2(x)
         return x
 
-env = AutoJumpEnv(hwnd=0x000E099C, dpi=1, device=device)
+env = AutoJumpEnv(hwnd=hwnd.hwnd, dpi=1, device=device)
 c, h, w = env.state().shape
 
 BATCH_SIZE = 128
@@ -118,7 +119,8 @@ print('    Creating memory...')
 memory = ReplayMemory(10000)
 print(f'    memory size: 10000')
 
-steps_done = 0
+steps_done = 1000 if os.path.exists('./model/dqn-policy.pth') and \
+    os.path.exists('./model/dqn-target.pth') else 0
 def select_action(state):
     global steps_done
     sample = random.random()
@@ -163,7 +165,7 @@ def optimize_model():
     torch.cuda.empty_cache()
     return True
 
-num_episodes = 700
+num_episodes = 600
 print(f'    num_episodes: {num_episodes}')
 print('-'*110)
 episode_tar = tqdm(total=num_episodes, desc='Training', unit='episodes', leave=False)
